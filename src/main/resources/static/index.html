@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Websocket</title>
+    <style>
+        body {
+            margin-left: auto;
+            margin-right: auto;
+            width: 50%;
+        }
+        .events {
+
+        }
+    </style>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <div class="events"></div>
+
+    <script>
+        var clientWebSocket = new WebSocket("ws://localhost:8080/websocket-emitter");
+        clientWebSocket.onopen = function() {
+            console.log("clientWebSocket.onopen", clientWebSocket);
+            console.log("clientWebSocket.readyState", "websocketstatus");
+            clientWebSocket.send("event-me-from-browser");
+            events("Establish connection");
+        }
+        clientWebSocket.onclose = function(error) {
+            console.log("clientWebSocket.onclose", clientWebSocket, error);
+            events("Closing connection");
+        }
+        clientWebSocket.onerror = function(error) {
+            console.log("clientWebSocket.onerror", clientWebSocket, error);
+            events("An error occured");
+        }
+        clientWebSocket.onmessage = function(error) {
+            console.log("clientWebSocket.onmessage", clientWebSocket, error);
+            events(error.data);
+        }
+
+        function events(responseEvent) {
+            document.querySelector(".events").innerHTML = responseEvent ;
+        }
+    </script>
+
+</body>
+</html>
