@@ -20,8 +20,15 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+import static java.util.Objects.isNull;
 
 @SpringBootApplication
 @RequiredArgsConstructor
@@ -34,7 +41,7 @@ public class WebfluxWebsocketApplication {
 	private final BasicWebSocketHandler basicWebSocketHandler;
 	private final ChatWebSocketHandler chatWebSocketHandler;
 
-	private final StatusHandler statusHandler;
+	private final OnlineHandler statusHandler;
 	@Bean
 	public HandlerMapping webSocketHandlerMapping() {
 		Map<String, WebSocketHandler> map = new HashMap<>();
@@ -89,37 +96,100 @@ class ChatWebSocketHandler implements WebSocketHandler {
 }
 
 record Message(String user, String text) {}
+record Member(String id, String name) {}
 
 @Component
 @Slf4j
-class StatusHandler implements WebSocketHandler {
-	Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+class OnlineHandler implements WebSocketHandler {
+	private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+	private final Map<UUID, List<Member>> rooms = Collections.synchronizedMap(new HashMap<>());
+
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
-		return session.receive()
-				.doOnNext(message -> sink.tryEmitNext(message.getPayloadAsText()))
-				.concatMap(message -> Mono.empty())
-				.then()
-				.and(session.send(sink.asFlux().map(session::textMessage)));
+		log.info("Session established: id: {}" , session.getId());
+		var roomId = session.getHandshakeInfo().getUri().getQuery();
+		log.info("roomId: {}", roomId);
+
+		return session
+				.send(sink.asFlux().map(session::textMessage))
+				.and(session
+						.receive()
+						.map(WebSocketMessage::getPayloadAsText)
+						.doOnNext(sink::tryEmitNext)
+						.then());
+
 	}
 
 	@Bean
-	RouterFunction routerFunction() {
+	public RouterFunction routerFunction() {
 		return RouterFunctions
 				.route()
-				.path("/user", builder -> builder
+				.path("/room", builder -> builder
+						.POST("", this::createRoom)
+						.GET("", this::allRooms)
+						.GET("/{id}", this::roomById)
+						.DELETE("/{id}", request -> ServerResponse.noContent().build())
+				)
+				.path("/{roomId}/member", builder -> builder
 						.GET("", request -> ServerResponse.noContent().build())
-						.POST("", request -> {
-							return request
-									.bodyToMono(String.class)
-									.doOnNext(sink::tryEmitNext)
-									.flatMap(s -> ServerResponse.accepted().build());
-						})
-						.GET("/{id}", request -> ServerResponse.noContent().build())
+						.GET("/{id}", this::memberById)
+						.POST("", this::joinRoom)
 						.PUT("/{id}", request -> ServerResponse.noContent().build())
 						.DELETE("/{id}", request -> ServerResponse.noContent().build())
-
 				)
 				.build();
+	}
+
+	private Mono<ServerResponse> memberById(ServerRequest request) {
+		var roomId = UUID.fromString(request.pathVariable("roomId"));
+		var memberId = request.pathVariable("id");
+		return Mono
+				.fromCallable(() -> rooms.get(roomId))
+				.map(members -> members
+						.stream()
+						.filter(m -> Objects.equals(m.id(), memberId))
+						.findFirst())
+				.flatMap(member -> ServerResponse.ok().bodyValue(member))
+				.onErrorResume(e -> ServerResponse.badRequest().build());
+	}
+
+	private Mono<ServerResponse> roomById(ServerRequest request) {
+		var roomId = UUID.fromString(request.pathVariable("id"));
+		return Mono
+				.fromCallable(() -> rooms.get(roomId))
+				//TODO return 404 if room not found
+				.filter(Objects::nonNull)
+				.flatMap(members -> ServerResponse.ok().bodyValue(members))
+				.onErrorResume(e -> ServerResponse.badRequest().build());
+	}
+
+	private Mono<ServerResponse> joinRoom(ServerRequest request) {
+		var roomId = UUID.fromString(request.pathVariable("roomId"));
+		var members = rooms.get(roomId);
+		return request
+				.bodyToMono(Member.class)
+				.map(member -> {
+					members.add(member);
+					rooms.put(roomId, members);
+					return members;
+				})
+				.flatMap(members1 -> ServerResponse.ok().bodyValue(members1));
+
+	}
+
+	private Mono<ServerResponse> createRoom(ServerRequest request) {
+		return request
+				.bodyToMono(String.class)
+				.flatMap(id -> {
+					var uuid = UUID.randomUUID();
+					rooms.put(uuid, new ArrayList<Member>());
+					return ServerResponse.ok().bodyValue(uuid);
+				});
+	}
+
+	private Mono<ServerResponse> allRooms(ServerRequest request) {
+		return Mono.fromCallable(rooms::keySet)
+				.flatMap(ids -> ServerResponse.ok().bodyValue(ids))
+				.onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
 	}
 }
