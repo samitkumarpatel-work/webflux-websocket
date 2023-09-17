@@ -20,6 +20,16 @@
             margin-top: 20px;
             margin-bottom: 20px;
             border: 1px solid black;
+            width:50%;
+            text-align:left;
+            margin-left:0;
+        }
+        #page3__rooms {
+            display: flex;
+            flex-direction: row;
+        }
+        .page3__room {
+            border-left: 1px solid black;
         }
     </style>
 </head>
@@ -45,9 +55,8 @@
         <hr>
 
         <section id="page3">
-            <h3>online Status</h3>
-            <p id="page3__websocket_status"></p>
-            <div id="page3__status"></div>
+            <h3>Online Status</h3>
+            <div id="page3__websocket_status"></div>
         </section>
     </div>
 
@@ -62,7 +71,6 @@
                     document.querySelector("#page2__available_rooms").innerHTML = data.map(room => `<option value="${room}">${room}</option>`);
                 });
         }
-        fetchRooms();
 
         createRoom = () => {
             fetch("/room", {
@@ -88,38 +96,41 @@
                 })
             })
             .then(response => response.json())
-            .then(data => {
-                console.log(data);
-                establishWebSocket(roomId, data.id)
-            });
+            .then(data => establishWebSocket(roomId));
         }
 
-        establishWebSocket = (roomId, memberId) => {
-            var clientWebSocket = new WebSocket(`ws://localhost:8080/websocket-status?${roomId}`);
+        establishWebSocket = (roomId) => {
+            const clientWebSocket = new WebSocket(`ws://localhost:8080/websocket-status?${roomId}`);
 
-            clientWebSocket.onopen = function() {
-                clientWebSocket.send(`${memberId} is Online`);
-                events("Establish connection");
+            clientWebSocket.onopen = function(e) {
+                // clientWebSocket.send(`${memberId} is Online`);
+                // events("Establish connection");
             }
 
             clientWebSocket.onclose = function(error) {
-                events("Closing connection");
+                // events("Closing connection");
             }
 
             clientWebSocket.onerror = function(error) {
-                events("An error occured");
+                // events("An error occured");
             }
 
             clientWebSocket.onmessage = function(event) {
-                console.log("clientWebSocket.onmessage", clientWebSocket, event);
-                events(event.data);
+                //console.log("clientWebSocket.onmessage", clientWebSocket, event);
+                events(JSON.parse(event.data));
             }
         }
 
         function events(responseEvent) {
-            document.querySelector("#page3__websocket_status").innerHTML += responseEvent + "<br/>";
+            console.log(responseEvent);
+            //document.querySelector("#page3__websocket_status").innerHTML += responseEvent + "<br/>";
+            document.querySelector("#page3__websocket_status").innerHTML = "";
+            responseEvent.map(event => {
+                document.querySelector("#page3__websocket_status").innerHTML += `<p>${event.id} , ${event.name}</p>`;
+            })
         }
 
+        fetchRooms();
     </script>
 </body>
 </html>

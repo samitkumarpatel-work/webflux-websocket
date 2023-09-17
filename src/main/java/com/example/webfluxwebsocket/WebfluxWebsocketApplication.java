@@ -1,6 +1,8 @@
 package com.example.webfluxwebsocket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -29,6 +31,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 @SpringBootApplication
 @RequiredArgsConstructor
@@ -101,22 +104,25 @@ record Member(String id, String name) {}
 @Component
 @Slf4j
 class OnlineHandler implements WebSocketHandler {
-	private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+	//private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+	private final Sinks.Many<String> sink = Sinks.many().replay().latestOrDefault("No one is online");
 	private final Map<UUID, List<Member>> rooms = Collections.synchronizedMap(new HashMap<>());
 
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
+
 		log.info("Session established: id: {}" , session.getId());
 		var roomId = session.getHandshakeInfo().getUri().getQuery();
-		log.info("roomId: {}", roomId);
+		var members = rooms.get(UUID.fromString(roomId));
+		log.info("roomId: {}, members : {}", roomId,members);
 
 		return session
-				.send(sink.asFlux().map(session::textMessage))
-				.and(session
-						.receive()
-						.map(WebSocketMessage::getPayloadAsText)
-						.doOnNext(sink::tryEmitNext)
-						.then());
+			.send(sink.asFlux().map(session::textMessage))
+			.and(session
+					.receive()
+					.map(WebSocketMessage::getPayloadAsText)
+					.doOnNext(sink::tryEmitNext)
+					.then());
 
 	}
 
@@ -171,10 +177,19 @@ class OnlineHandler implements WebSocketHandler {
 				.map(member -> {
 					members.add(member);
 					rooms.put(roomId, members);
-					return members;
+					return member;
 				})
-				.flatMap(members1 -> ServerResponse.ok().bodyValue(members1));
+				.doOnNext(member -> {
+					log.info("Member joined: {}", member);
+					sink.tryEmitNext(membersAsJson(members));
+				})
+				.flatMap(member -> ServerResponse.ok().bodyValue(member));
+	}
 
+	@SneakyThrows
+	private String membersAsJson(List<Member> members) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		return objectMapper.writeValueAsString(members);
 	}
 
 	private Mono<ServerResponse> createRoom(ServerRequest request) {
