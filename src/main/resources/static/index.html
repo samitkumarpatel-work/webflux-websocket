@@ -1,60 +1,42 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Websocket</title>
-    <style>
-        body {
-            margin-left: auto;
-            margin-right: auto;
-            width: 50%;
-        }
-        .events {
-
-        }
-    </style>
+    <title>Example</title>
 </head>
 <body>
-    <h1>Hello World</h1>
+    <h1>Websocket Example</h1>
+    <input type="text" id="message" placeholder="Enter message" />
+    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_ALL', message: 'Hello All' }))">Send to all</button>
 
-    <div class="events"></div>
-    <br/>
-    <input type="text" id="textBox"/>
-    <button onclick="sendMessage()">Send</button>
+    <input type="text" id="message" placeholder="Enter message" />
+    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_ROOM', message: 'Hello Room' }))">Send to room</button>
+
+    <input type="text" id="message" placeholder="Enter message" />
+    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_INDIVIDUAL', message: 'Hello Individual' }))">Send to individual</button>
+
+    <div id="messages__to__all"></div>
+    <div id="messages__to__room"></div>
+    <div id="messages__to_individual"></div>
+    <div id="messages__to_individual__response"></div>
+    <div id="messages__to_individual__response__room"></div>
 
     <script>
-        var clientWebSocket = new WebSocket("ws://localhost:8080/websocket-emitter");
-        clientWebSocket.onopen = function() {
-            console.log("clientWebSocket.onopen", clientWebSocket);
-            console.log("clientWebSocket.readyState", "websocketstatus");
-            clientWebSocket.send("event-me-from-browser");
-            events("Establish connection");
-        }
-        clientWebSocket.onclose = function(error) {
-            console.log("clientWebSocket.onclose", clientWebSocket, error);
-            events("Closing connection");
-        }
-        clientWebSocket.onerror = function(error) {
-            console.log("clientWebSocket.onerror", clientWebSocket, error);
-            events("An error occured");
-        }
-        clientWebSocket.onmessage = function(error) {
-            console.log("clientWebSocket.onmessage", clientWebSocket, error);
-            events(error.data);
-        }
+        const socket = new WebSocket("ws://localhost:8080/ws/message");
 
-        function events(responseEvent) {
-            document.querySelector(".events").innerHTML = responseEvent ;
-        }
+        socket.onmessage = function (event) {
+            document.getElementById("messages__to__all").innerHTML += "<br/>" + event.data;
+        };
 
-        function sendMessage(){
-            var message = document.getElementById("textBox").value;
-            clientWebSocket.send(message);
-        }
+        socket.onopen = function (event) {
+            console.log(event);
+            socket.send(JSON.stringify({ event: 'ONOPEN' }));
+        };
+
+        socket.onclose = function (event) {
+            document.getElementById("messages__to__all").innerHTML += "<br/>" + "Connection closed";
+        };
+
     </script>
-
 </body>
 </html>

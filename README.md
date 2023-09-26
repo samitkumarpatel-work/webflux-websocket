@@ -11,3 +11,9 @@ Note: Keep in mind also that over the Internet, restrictive proxies that are out
 
 reference documents:
 -[webflux-websocket spring 6.0.x](https://docs.spring.io/spring-framework/reference/web/webflux-websocket.html)
+
+In this project, we will create a simple chat application using Spring WebFlux and WebSocket. which will cover:
+
+1. Brodcast message to all connected clients
+2. Brodcast message to a room
+3. Brodcast message to a specific client
