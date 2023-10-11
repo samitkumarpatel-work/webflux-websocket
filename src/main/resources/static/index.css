@@ -1,0 +1,19 @@
+body {
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+}
+
+footer {
+    margin-top: 60px;
+    text-align: center;
+    color: gray;
+}
+
+header, article {
+    margin-top: 20px;
+}
+
+fieldset {
+    width: 50px;
+}

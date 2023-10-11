@@ -2,41 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Example</title>
+    <title>websocket</title>
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
-    <h1>Websocket Example</h1>
-    <input type="text" id="message" placeholder="Enter message" />
-    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_ALL', message: 'Hello All' }))">Send to all</button>
+    <h1>Websocket</h1>
+    <div id="app">
+        <header>
+            <router-link to="/" id="home">Home</router-link> |
+            <router-link to="/about" id="about">About</router-link> |
+            <router-link to="/login" id="login">Login</router-link>
+        </header>
+        <article>
+            <router-view></router-view>
+        </article>
+        <hr/>
+        <footer>
+            Status: <span id="status">Unknown!</span>
+        </footer>
+    </div>
 
-    <input type="text" id="message" placeholder="Enter message" />
-    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_ROOM', message: 'Hello Room' }))">Send to room</button>
-
-    <input type="text" id="message" placeholder="Enter message" />
-    <button onclick="socket.send(JSON.stringify({ event: 'SEND_TO_INDIVIDUAL', message: 'Hello Individual' }))">Send to individual</button>
-
-    <div id="messages__to__all"></div>
-    <div id="messages__to__room"></div>
-    <div id="messages__to_individual"></div>
-    <div id="messages__to_individual__response"></div>
-    <div id="messages__to_individual__response__room"></div>
-
-    <script>
-        const socket = new WebSocket("ws://localhost:8080/ws/message");
-
-        socket.onmessage = function (event) {
-            document.getElementById("messages__to__all").innerHTML += "<br/>" + event.data;
-        };
-
-        socket.onopen = function (event) {
-            console.log(event);
-            socket.send(JSON.stringify({ event: 'ONOPEN' }));
-        };
-
-        socket.onclose = function (event) {
-            document.getElementById("messages__to__all").innerHTML += "<br/>" + "Connection closed";
-        };
-
-    </script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue-router@4"></script>
+    <script src="index.js"></script>
 </body>
 </html>
